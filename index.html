@@ -243,7 +243,7 @@ footer.credit{margin:28px 0 8px;border:1px solid var(--line);border-radius:16px;
   <details class="def" id="defs">
     <summary>นิยามและวิธีคำนวณ</summary>
     <dl>
-      <dt>CMI ของ รพ.</dt><dd>TotalAdjRW ÷ จำนวนคำนวณ ตามรายงาน “ร้อยละของผู้ป่วยในจำแนกตามระดับ CMI” (แถวรวม) ของเว็บ CMI ทั้งปีงบ</dd>
+      <dt>CMI ของ รพ.</dt><dd>TotalAdjRW ÷ จำนวนผู้ป่วยในที่ส่ง ทั้งปีงบและรายเดือน ตรงกับหน้า “สรุปผลการส่งข้อมูล” ของ รพ. บนเว็บ CMI (กรณีมีราย Ungroupable หรือ Error ตัวหารของเว็บจะน้อยกว่าเล็กน้อย) · ตารางรอบรายงานครั้งที่ 1/2 ใช้ค่าจากรายงานภาพรวมเขตของเว็บ CMI ตามเดิม</dd>
       <dt>เกณฑ์ CMI ตามระดับบริการ</dt><dd>A ≥ 1.6 · S ≥ 1.2 · M1 ≥ 1.0 · M2 ≥ 0.8 · F1–F3 ≥ 0.6 (เกณฑ์อ้างอิงจากรายงาน Service Plan ของเว็บ CMI)</dd>
       <dt>CMI รายโรค (PDx)</dt><dd>Sum AdjRW ÷ จำนวนผู้ป่วย ของรหัสโรคหลัก 3 หลักนั้นใน รพ.</dd>
       <dt>อัตราตาย / ส่งต่อ</dt><dd>คิดจากผลรวมรายงาน DRG ของ รพ. (ผู้ป่วยตาม DRG เป็นตัวหาร)</dd>
@@ -298,7 +298,7 @@ const bandCol = () => [css('--b1'),css('--b2'),css('--b3'),css('--b4')];
 
 // ---------- hospitals ----------
 const H = D.H.map(([hcode,name,chw,type,lvl,beds,pop,sgroup,sent,calc,rwOff],i)=>({i,hcode,name,short:name.replace(/^รพ\.\s*(สต\.)?/,'').trim(),chw,type,lvl,beds,pop,sgroup,sent,
-  pat:calc||0,rw:rwOff||0,dpat:0,death:0,rin:0,rout:0,ndrg:0,npdx:0,mAN:D.MON[i].map(m=>m[0]),mRW:D.MON[i].map(m=>m[1]),band:D.BAND[i]}));
+  pat:sent||0,calc:calc||0,rw:rwOff||0,dpat:0,death:0,rin:0,rout:0,ndrg:0,npdx:0,mAN:D.MON[i].map(m=>m[0]),mRW:D.MON[i].map(m=>m[1]),band:D.BAND[i]}));
 for (const [h,c,p,rw,de,ri,ro] of D.DRG){ const x=H[h]; x.dpat+=p; x.death+=de; x.rin+=ri; x.rout+=ro; x.ndrg++; }
 const PDXBY = H.map(()=>new Map());
 for (const r of D.PDX){ H[r[0]].npdx++; PDXBY[r[0]].set(r[1], r); }
@@ -306,7 +306,7 @@ H.forEach(x=>{ x.has=x.pat>0; x.cmi=x.pat?x.rw/x.pat:null; x.drate=x.dpat?x.deat
   x.patBed=x.beds&&x.pat?x.pat/x.beds:null; x.rwBed=x.beds&&x.pat?x.rw/x.beds:null; x.patPop=x.pop&&x.pat?x.pat/x.pop*10000:null; x.rwPop=x.pop&&x.pat?x.rw/x.pop*10000:null;
   x.tgt=TARGET[x.lvl]; x.gap=x.cmi!=null?x.cmi-x.tgt:null; x.pass=x.cmi!=null&&x.cmi>=x.tgt;
   x.mCMI=x.mAN.map((a,k)=>a?x.mRW[k]/a:null);
-  const b=x.band; x.lowp=b&&x.pat?b[0]/x.pat*100:null; x.hip=b&&x.pat?b[6]/x.pat*100:null; x.hirwp=b&&x.rw?b[7]/x.rw*100:null; });
+  const b=x.band; x.lowp=b&&x.calc?b[0]/x.calc*100:null; x.hip=b&&x.calc?b[6]/x.calc*100:null; x.hirwp=b&&x.rw?b[7]/x.rw*100:null; });
 const VALID = H.filter(x=>x.has);
 // months whose region total is < 60% of the median of earlier months = still being submitted
 const REG12 = MONTHS.map((_,k)=>VALID.reduce((s,x)=>s+x.mAN[k],0));
@@ -441,7 +441,7 @@ function vOverview(){
   const byL = LEVELS.map(l=>{ const L=VALID.filter(x=>x.lvl===l); const p=sumBy(L,x=>x.pat), r=sumBy(L,x=>x.rw), beds=sumBy(L,x=>x.beds);
     return {l,n:L.length,pat:p,rw:r,cmi:p?r/p:null,med:median(L.map(x=>x.cmi)),min:L.length?Math.min(...L.map(x=>x.cmi)):null,max:L.length?Math.max(...L.map(x=>x.cmi)):null,patBed:beds?p/beds:null,tgt:TARGET[l],pass:L.filter(x=>x.pass).length}; }).filter(r=>r.n);
   const prov = PROVS.map(p=>{ const l=VALID.filter(x=>x.chw===p); const pt=sumBy(l,x=>x.pat), r=sumBy(l,x=>x.rw), dpp=sumBy(l,x=>x.dpat), d=sumBy(l,x=>x.death), o=sumBy(l,x=>x.rout), b=sumBand(l);
-    return {p,n:l.length,pat:pt,rw:r,cmi:r/pt,drate:d/dpp*10000,routp:o/dpp*100,medcmi:median(l.map(x=>x.cmi)),lowp:b[0]/pt*100,hip:b[6]/pt*100,pass:l.filter(x=>x.pass).length}; }).sort((a,b)=>b.rw-a.rw);
+    return {p,n:l.length,pat:pt,rw:r,cmi:r/pt,drate:d/dpp*10000,routp:o/dpp*100,medcmi:median(l.map(x=>x.cmi)),lowp:b[0]/(b[0]+b[2]+b[4]+b[6])*100,hip:b[6]/(b[0]+b[2]+b[4]+b[6])*100,pass:l.filter(x=>x.pass).length}; }).sort((a,b)=>b.rw-a.rw);
   const OG=groupOf(S.og); const m12=MONTHS.map((_,k)=>sumBy(OG,x=>x.mAN[k])); const r12=MONTHS.map((_,k)=>sumBy(OG,x=>x.mRW[k]));
   const c12=m12.map((a,k)=>a?r12[k]/a:null);
   const full=c12.filter((v,k)=>v!=null&&!PARTIAL[k]); const firstK=c12.findIndex((v,k)=>v!=null&&!PARTIAL[k]); let lastK=-1; c12.forEach((v,k)=>{ if(v!=null&&!PARTIAL[k]) lastK=k; });
@@ -456,11 +456,11 @@ function vOverview(){
   $('#v-overview').innerHTML = `
     <div style="height:18px"></div>
     <div class="tiles">
-      <div class="tile"><div class="k">ผู้ป่วยใน (จำนวนคำนวณ)</div><div class="v">${fmt(pat)}</div><div class="d">ราย · ${VALID.length} แห่ง</div></div>
+      <div class="tile"><div class="k">ผู้ป่วยใน (จำนวนส่ง)</div><div class="v">${fmt(pat)}</div><div class="d">ราย · ${VALID.length} แห่ง</div></div>
       <div class="tile"><div class="k">Sum AdjRW</div><div class="v">${fmt(rw)}</div><div class="d">น้ำหนักสัมพัทธ์ปรับวันนอน</div></div>
       <div class="tile"><div class="k">CMI ทั้งเขต</div><div class="v">${fmt(rw/pat,3)}</div><div class="d">มัธยฐานรายแห่ง ${fmt(median(VALID.map(x=>x.cmi)),3)}</div></div>
       <div class="tile"><div class="k">ผ่านเกณฑ์ CMI ตามระดับ</div><div class="v">${npass}<span style="font-size:15px;color:var(--muted)"> / ${VALID.length}</span></div><div class="d"><span class="chip ${npass/VALID.length>=.5?'up':'down'}">${fmt(npass/VALID.length*100,1)}%</span> ของ รพ.</div></div>
-      <div class="tile"><div class="k">ผู้ป่วยใน AdjRW &lt; 0.5</div><div class="v">${fmt(low/pat*100,2)}%</div><div class="d">${fmt(low)} ราย</div></div>
+      <div class="tile"><div class="k">ผู้ป่วยใน AdjRW &lt; 0.5</div><div class="v">${fmt(low/sumBy(VALID,x=>x.calc)*100,2)}%</div><div class="d">${fmt(low)} ราย</div></div>
       <div class="tile"><div class="k">อัตราตาย</div><div class="v">${fmt(de/dp*10000,2)}</div><div class="d">ต่อ 10,000 ราย · ${fmt(de)} ราย</div></div>
       <div class="tile"><div class="k">ส่งต่อออก</div><div class="v">${fmt(ro/dp*100,2)}%</div><div class="d">${fmt(ro)} ราย</div></div>
     </div>
@@ -719,7 +719,7 @@ function vHosp(){
       <button id="h-add">＋ เพิ่มในการเปรียบเทียบ</button>
     </div>
     <h2 style="font-size:20px">${esc(x.name)} <span class="lvl" style="font-size:13px">${x.lvl}</span></h2>
-    <p class="hint">จ.${x.chw} · รหัส ${x.hcode} · ${x.type} ${esc(x.sgroup)} · เตียงจริง ${fmt(x.beds)} · ปชก.UC ${fmt(x.pop)} · ส่งข้อมูล ${fmt(x.sent)} ราย คำนวณได้ ${fmt(x.pat)} ราย</p>
+    <p class="hint">จ.${x.chw} · รหัส ${x.hcode} · ${x.type} ${esc(x.sgroup)} · เตียงจริง ${fmt(x.beds)} · ปชก.UC ${fmt(x.pop)} · ส่งข้อมูล ${fmt(x.sent)} ราย · จำแนกช่วง AdjRW ได้ ${fmt(x.calc)} ราย</p>
     <div class="tiles">${cmiTile}${['pat','rw','patBed','drate','routp'].map(tile).join('')}</div>
     <div class="grid g2" style="margin-bottom:16px">
       <div class="panel"><h2>CMI รายเดือน</h2><p class="hint">${partialNote()||'ข้อมูลครบทุกเดือนที่มี'}</p>
@@ -730,7 +730,7 @@ function vHosp(){
         ${bandLegend()}
         ${x.band? [[esc(x.short),x.band,true],['ระดับ '+x.lvl+' ('+peers.length+' แห่ง)',pB],['ทั้งเขต',rB]].map(([n,b,me])=>`<div class="bandrow"><span style="${me?'font-weight:600':''}">${n}</span>${bandBar(b,S.bm)}<span class="num">${fmt((S.bm==='rw'?b[1]/(b[1]+b[3]+b[5]+b[7]):b[0]/(b[0]+b[2]+b[4]+b[6]))*100,1)}%</span></div>`).join('') : '<p class="hint">ไม่มีข้อมูล</p>'}
         <div class="tbl" style="margin-top:12px"><table><thead><tr><th>ช่วง AdjRW</th><th class="num">ราย</th><th class="num">% ราย</th><th class="num">% ราย ระดับ ${x.lvl}</th><th class="num">AdjRW</th><th class="num">% AdjRW</th></tr></thead><tbody>
-          ${x.band?BANDS.map((l,k)=>`<tr><td><i style="display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:${bandCol()[k]}"></i>${l}</td><td class="num">${fmt(x.band[k*2])}</td><td class="num">${fmt(x.band[k*2]/x.pat*100,2)}</td><td class="num" style="color:var(--median)">${fmt(pB[k*2]/(pB[0]+pB[2]+pB[4]+pB[6])*100,2)}</td><td class="num">${fmt(x.band[k*2+1],1)}</td><td class="num">${fmt(x.band[k*2+1]/x.rw*100,2)}</td></tr>`).join(''):''}
+          ${x.band?BANDS.map((l,k)=>`<tr><td><i style="display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:${bandCol()[k]}"></i>${l}</td><td class="num">${fmt(x.band[k*2])}</td><td class="num">${fmt(x.band[k*2]/x.calc*100,2)}</td><td class="num" style="color:var(--median)">${fmt(pB[k*2]/(pB[0]+pB[2]+pB[4]+pB[6])*100,2)}</td><td class="num">${fmt(x.band[k*2+1],1)}</td><td class="num">${fmt(x.band[k*2+1]/x.rw*100,2)}</td></tr>`).join(''):''}
         </tbody></table></div></div>
     </div>
     <div class="panel" style="margin-bottom:16px"><div class="rank-head"><div><h2>ผล M&amp;E เทียบกลุ่ม ${AGL[ag]}</h2><p class="hint" style="margin:0">จำนวนรหัสโรค (ทุกรหัส) ที่ติดเงื่อนไข · คลิกเพื่อดูรายการ</p></div></div>
