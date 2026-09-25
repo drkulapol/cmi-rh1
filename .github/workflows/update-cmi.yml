@@ -2,7 +2,9 @@ name: Update CMI data
 
 on:
   schedule:
-    - cron: "17 19 * * *"   # ทุกวัน 02:17 น. เวลาไทย
+    # วันละ 4 รอบ (เวลาไทย 02:17, 08:17, 14:17, 20:17) เผื่อรอบใดเข้าเว็บ CMI ไม่ได้
+    # commit เฉพาะเมื่อตัวเลขเปลี่ยน
+    - cron: "17 1,7,13,19 * * *"
   workflow_dispatch:
     inputs:
       fy:
@@ -29,10 +31,16 @@ jobs:
 
       - run: pip install requests beautifulsoup4 lxml openpyxl
 
-      - name: Probe cmi.moph.go.th
-        run: python scripts/fetch_cmi.py --probe
+      - name: Probe cmi.moph.go.th (ลองซ้ำสูงสุด 4 ครั้ง)
+        run: |
+          for i in 1 2 3 4; do
+            if timeout 120 python scripts/fetch_cmi.py --probe; then echo "OK=1" >> $GITHUB_ENV; exit 0; fi
+            echo "ครั้งที่ $i เข้าเว็บ CMI ไม่ได้ รอ 2 นาที"; sleep 120
+          done
+          echo "::warning::รอบนี้เข้าเว็บ cmi.moph.go.th ไม่ได้ ข้ามไป ข้อมูลเดิมยังอยู่"
 
       - name: Fetch CMI
+        if: env.OK == '1'
         env:
           FY_IN: ${{ github.event.inputs.fy }}
         run: |
@@ -50,9 +58,11 @@ jobs:
           fi
 
       - name: Build data.json
+        if: env.OK == '1'
         run: python scripts/build_data.py /tmp/cmi/cmi_raw_${FY}.json data.json
 
       - name: Commit if changed
+        if: env.OK == '1'
         run: |
           git config user.name  "cmi-bot"
           git config user.email "cmi-bot@users.noreply.github.com"
