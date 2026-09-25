@@ -107,14 +107,14 @@ def build(raw, old, run):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('raw'); ap.add_argument('data_json')
-    ap.add_argument('--run', default=datetime.now(timezone(timedelta(hours=7))).strftime('%Y-%m-%d'))
+    ap.add_argument('--run', default=datetime.now(timezone(timedelta(hours=7))).isoformat(timespec='seconds'))
     a = ap.parse_args()
     raw = json.load(open(a.raw, encoding='utf-8'))
     old = json.load(open(a.data_json, encoding='utf-8'))
     ok = sum(1 for h in raw['spcl'].values() if h.get('ipd_percentage'))
     new = build(raw, old, a.run)
     strip = lambda d: {**d, 'meta': {**d['meta'], 'run': None}}
-    if strip(new) == strip(old):
+    if strip(new) == strip(old) and 'T' in str(old['meta'].get('run', '')):
         print('ตัวเลขไม่เปลี่ยนจากเดิม — ไม่แก้ data.json'); raise SystemExit(0)
     with open(a.data_json, 'w', encoding='utf-8') as f:
         json.dump(new, f, ensure_ascii=False, separators=(',', ':'))
