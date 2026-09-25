@@ -284,6 +284,7 @@ const D = await fetch('data.json?v=' + Date.now()).then(r => { if(!r.ok) throw n
   .catch(e => { document.getElementById('boot').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message; throw e; });
 document.getElementById('boot')?.remove();
 const $ = s => document.querySelector(s);
+const runTxt=(r,m)=>{const d=new Date(r),o={timeZone:'Asia/Bangkok'};let s=d.toLocaleDateString('th-TH',{...o,day:'numeric',month:m,year:'numeric'});if(String(r).includes('T'))s+=' เวลา '+d.toLocaleTimeString('th-TH',{...o,hour:'2-digit',minute:'2-digit',hour12:false})+' น.';return s;};
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt = (v, d=0) => v==null||isNaN(v) ? '–' : v.toLocaleString('th-TH',{minimumFractionDigits:d,maximumFractionDigits:d});
 const MONTHS = ['ต.ค.','พ.ย.','ธ.ค.','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.'];
@@ -985,10 +986,10 @@ function go(tab){ if(['matrix','volume','flags'].includes(tab) && !['matrix','vo
   S.tab=tab; lastTab=tab; render(); window.scrollTo({top:0}); }
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('#fy').textContent=D.meta.fy; $('#nh').textContent=VALID.length;
-$('#run').textContent=new Date(D.meta.run).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
-$('#creditUpdated').textContent=new Date(D.meta.run).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+$('#run').textContent=runTxt(D.meta.run,'long');
+$('#creditUpdated').textContent=runTxt(D.meta.run,'long');
 $('#creditDefs').onclick=e=>{ e.preventDefault(); const d=$('#defs'); d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); };
-$('#foot').innerHTML = `ข้อมูลผู้ป่วยในจาก CMI@MoPH ปีงบ ${D.meta.fy} เขตสุขภาพที่ ${D.meta.region} (ไฟล์ CMI_เขต1_ปีงบ2569.xlsx ดึงเมื่อ ${new Date(D.meta.run).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})}) · CMI รพ. ตามรายงานร้อยละผู้ป่วยในจำแนกตามระดับ CMI · PDx 3 หลัก และ DRG เป็นยอดสะสมตั้งแต่ต้นปีงบ · ${D.meta.master} · ไม่มีข้อมูล: ${D.meta.failed.join(', ')} (เซิร์ฟเวอร์ต้นทางตอบ HTTP 500)`;
+$('#foot').innerHTML = `ข้อมูลผู้ป่วยในจาก CMI@MoPH ปีงบ ${D.meta.fy} เขตสุขภาพที่ ${D.meta.region} (ดึงอัตโนมัติจาก cmi.moph.go.th เมื่อ ${runTxt(D.meta.run,'short')}) · CMI รพ. ตามรายงานร้อยละผู้ป่วยในจำแนกตามระดับ CMI · PDx 3 หลัก และ DRG เป็นยอดสะสมตั้งแต่ต้นปีงบ · ${D.meta.master} · ไม่มีข้อมูล: ${D.meta.failed.join(', ')} (เซิร์ฟเวอร์ต้นทางตอบ HTTP 500)`;
 const mq=matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener?.('change',render);
 new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 render();
