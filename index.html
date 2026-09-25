@@ -48,6 +48,18 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;backgroun
 .brand h1::before{content:"CMI";font:700 11px/1 var(--mono);letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#3a5bdc,#1fb5a6);border-radius:8px;padding:8px 7px}
 .brand .sub{color:var(--hdr-muted);font-size:12.5px}
 .brand .sub b{font-family:var(--mono);font-weight:500;color:#8ff0e3}
+.xbar{display:flex;justify-content:flex-end;gap:6px;margin:0 0 6px}
+.xbar button{font:600 11.5px var(--body);color:var(--ink2);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.xbar button::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--good)}
+.xbar button[data-x=pdf]::before{background:var(--bad)}
+.xbar button:hover{border-color:var(--accent);color:var(--accent)}
+.xbar button:disabled{opacity:.6;cursor:progress}
+.sites{display:flex;flex-wrap:wrap;gap:6px 8px;padding-block:12px 0}
+.sites a{display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--body);color:var(--hdr-ink);text-decoration:none;background:rgba(255,255,255,.06);border:1px solid var(--hdr-line);border-radius:10px;padding:6px 12px;transition:background .15s,border-color .15s}
+.sites a:hover{background:rgba(255,255,255,.12);border-color:#3a5bdc}
+.sites a[aria-current="page"]{background:linear-gradient(135deg,#3a5bdc,#1fb5a6);border-color:transparent;color:#fff;font-weight:600}
+.sites a:focus-visible{outline:2px solid #8ff0e3;outline-offset:2px}
+@media (max-width:640px){.sites{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.sites a{font-size:12px;padding:5px 10px;white-space:nowrap;flex:none}}
 nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
 nav.tabs button{color:var(--hdr-muted);font:500 13.5px var(--body);background:none;padding:7px 14px;border:1px solid transparent;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
 nav.tabs button:hover{color:var(--hdr-ink);background:rgba(255,255,255,.06)}
@@ -197,6 +209,12 @@ footer.credit{margin:28px 0 8px;border:1px solid var(--line);border-radius:16px;
 
 
 <header class="top"><div class="wrap" style="padding-block:0">
+  <nav class="sites" aria-label="แดชบอร์ดเขตสุขภาพที่ 1">
+    <a href="https://drkulapol.github.io/planfin-analysis/">วิเคราะห์ Planfin เขต 1</a>
+    <a href="https://drkulapol.github.io/mishos-rh1/">วิเคราะห์ รายรับรายกองทุน เขต 1</a>
+    <a href="https://drkulapol.github.io/quickmethod/dashboard.html">วิเคราะห์ รายรับ-จ่ายทางบัญชี เขต 1</a>
+    <a href="https://drkulapol.github.io/cmi-rh1/index.html" aria-current="page">วิเคราะห์ CMI รายโรค/กลุ่ม AdjRW &lt; 0.5 เขต 1</a>
+  </nav>
   <div class="brand">
     <h1>CMI เขตสุขภาพที่ 1</h1>
     <span class="sub">M&amp;E ผู้ป่วยใน ปีงบ <b id="fy"></b> · ข้อมูล ณ วันที่ <b id="run"></b> · <b id="nh"></b> หน่วยบริการ · ที่มา cmi.moph.go.th</span>
@@ -496,7 +514,7 @@ function vRank(){
     <div class="panel">
       <div class="rank-head"><div><h2>${M.label}</h2><p class="hint" style="margin:0">${groupLabel(S.g)} · เรียงมากไปน้อย · ${M.good?`ค่า${M.good==='high'?'สูง':'ต่ำ'}ถือว่าดีกว่าโดยทั่วไป · `:''}คลิกแถวเพื่อดูรายละเอียด</p></div>
         <div class="stats"><span class="med">มัธยฐาน <b>${fmt(med,M.d)}</b></span><span>ค่าเฉลี่ย <b>${fmt(mean,M.d)}</b></span><span>สมาชิก <b>${list.length}</b> แห่ง</span><span>ช่วง <b>${fmt(Math.min(...vals),M.d)} – ${fmt(Math.max(...vals),M.d)}</b></span>${showPass?`<span class="tg">ผ่านเกณฑ์ CMI <b>${npass}/${list.length}</b></span>`:''}${oneT!=null?`<span class="tg">เกณฑ์ <b>${fmt(oneT,1)}</b></span>`:''}</div></div>
-      <div class="rlist">${sorted.map((x,k)=>{ const v=x[S.m]??0; const neg=v<0; const z=pos(0);
+      <div class="rlist" data-export="${esc(M.label)}">${sorted.map((x,k)=>{ const v=x[S.m]??0; const neg=v<0; const z=pos(0);
         return `<div class="rrow${x.i===S.h?' sel':''}" tabindex="0" data-i="${x.i}">
           <span class="no">${k+1}</span><span class="nm" title="${esc(x.name)}">${esc(x.short)}<small>${x.lvl} · ${x.chw}</small></span>
           <span class="track"><span class="fill" style="left:${neg?pos(v):z}%;width:${Math.abs(pos(v)-z).toFixed(2)}%${neg?';background:color-mix(in srgb,var(--bad) 45%,transparent)':''}"></span><span class="med" style="left:${pos(med)}%"></span>${oneT!=null?`<span class="tgt" style="left:${pos(oneT)}%"></span>`:''}${S.m==='gap'?`<span class="tgt" style="left:${z}%"></span>`:''}</span>
@@ -880,12 +898,86 @@ function vCode(){
   document.querySelectorAll('#v-code [data-cs]').forEach(th=>th.onclick=()=>{ const k=th.dataset.cs; if(S.cs===k) S.cd=S.cd==='desc'?'asc':'desc'; else { S.cs=k; S.cd='desc'; } render(); });
 }
 
+
+// ---------- export (Excel / PDF) ----------
+const TABLBL={overview:'ภาพรวม',rank:'จัดอันดับ',matrix:'CMI รายโรค',volume:'Adj AN ต่อ 10,000 ปชก.UC',flags:'สรุปจุดที่ต้องทบทวน',hosp:'รายโรงพยาบาล',compare:'เปรียบเทียบ รพ.',code:'รายโรค DRG'};
+const cleanTxt = el => (el?.textContent||'').replace(/[▼▲▾]/g,'').replace(/\s+/g,' ').trim();
+const toNum = s => { if(s===''||s==='–'||s==='—') return ''; const t=s.replace(/,/g,'').replace(/%$/,''); return /^[-−]?\d+(\.\d+)?$/.test(t)? Number(t.replace('−','-')) : s; };
+function exportTitle(box){
+  const panel=box.closest('.panel'); let h=panel?.querySelector('h2');
+  if(!h){ let p=box.previousElementSibling; while(p&&!h){ if(p.matches('h2')) h=p; else h=p.querySelector?.('h2'); p=p.previousElementSibling; } }
+  return cleanTxt(h)||TABLBL[S.tab];
+}
+function exportRows(box){
+  if(box.classList.contains('rlist')){
+    const head=['ลำดับ','โรงพยาบาล','ระดับ · จังหวัด', box.dataset.export||'ค่า'];
+    const rows=[...box.querySelectorAll('.rrow')].map(r=>{ const nm=r.querySelector('.nm'); const sm=cleanTxt(nm.querySelector('small')); const name=cleanTxt(nm).replace(sm,'').trim();
+      return [toNum(cleanTxt(r.querySelector('.no'))), name, sm, toNum(cleanTxt(r.querySelector('.num')))]; });
+    return {head, rows};
+  }
+  const tb=box.querySelector('table'); const head=[...tb.querySelectorAll('thead tr:first-child th')].map(cleanTxt);
+  let rows=[...tb.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(td=>toNum(cleanTxt(td))));
+  const keep=head.map((h,j)=> h!=='' || rows.some(r=>r[j]!==''&&r[j]!=null));
+  return {head:head.filter((_,j)=>keep[j]), rows:rows.map(r=>r.filter((_,j)=>keep[j]))};
+}
+const fileBase = t => `CMI_เขต1_${TABLBL[S.tab]}_${t}`.replace(/[\\/:*?"<>|\[\]]/g,' ').replace(/\s+/g,'_').slice(0,90);
+let xlsxP=null;
+const loadXLSX = () => xlsxP ||= new Promise((ok,no)=>{ if(window.XLSX) return ok(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=ok; s.onerror=()=>{xlsxP=null; no(new Error('โหลดตัวสร้าง Excel ไม่ได้'));}; document.head.appendChild(s); });
+async function toExcel(box, btn){
+  const old=btn.textContent; btn.textContent='กำลังสร้าง…'; btn.disabled=true;
+  try{ await loadXLSX(); const t=exportTitle(box); const {head,rows}=exportRows(box);
+    const meta=[[t],[`CMI เขตสุขภาพที่ ${D.meta.region} · ปีงบ ${D.meta.fy} · ข้อมูล ณ วันที่ ${$('#run').textContent} · ที่มา cmi.moph.go.th`],[]];
+    const ws=XLSX.utils.aoa_to_sheet([...meta,head,...rows]);
+    ws['!cols']=head.map((h,j)=>({wch:Math.min(60,Math.max(6,String(h).length+2,...rows.slice(0,300).map(r=>String(r[j]??'').length+1)))}));
+    ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:3,c:0},e:{r:3+rows.length,c:head.length-1}})};
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, (TABLBL[S.tab]).replace(/[\\/:*?\[\]]/g,' ').slice(0,31));
+    XLSX.writeFile(wb, fileBase(t)+'.xlsx');
+  }catch(e){ btn.textContent='ไม่สำเร็จ'; setTimeout(()=>{btn.textContent=old;},2000); btn.disabled=false; return; }
+  btn.textContent=old; btn.disabled=false;
+}
+function toPDF(box){
+  const t=exportTitle(box); const src=box.classList.contains('rlist')? null : box.querySelector('table');
+  let tableHTML;
+  if(src){ const c=src.cloneNode(true); c.querySelectorAll('.track').forEach(el=>el.remove()); tableHTML=c.outerHTML; }
+  else { const {head,rows}=exportRows(box); tableHTML=`<table><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(v=>`<td class="${typeof v==='number'?'num':''}">${esc(typeof v==='number'?v.toLocaleString('th-TH',{maximumFractionDigits:3}):v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`; }
+  const ncol=(src? src.querySelectorAll('thead th').length : 4);
+  const fs= ncol>40?6: ncol>20?7.5: ncol>10?9: 10.5; const land = ncol>6;
+  const f=document.createElement('iframe'); f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(f);
+  const d=f.contentDocument;
+  d.open(); d.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${esc(fileBase(t))}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600&display=swap">
+  <style>@page{size:A4 ${land?'landscape':'portrait'};margin:10mm}
+  body{font-family:"Noto Sans Thai",system-ui,sans-serif;color:#0e1526;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  h1{font:600 15px "Prompt","Noto Sans Thai",sans-serif;margin:0 0 2px}.sub{font-size:10px;color:#48526a;margin:0 0 8px}
+  table{border-collapse:collapse;width:100%;font-size:${fs}px}thead{display:table-header-group}tr{break-inside:avoid}
+  th,td{border:1px solid #cfd6e4;padding:2px 4px;text-align:left;vertical-align:top}th{background:#eef1f6;font-weight:600}
+  td.num,td.v,td.st,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th.hn{writing-mode:vertical-rl;transform:rotate(180deg);height:110px;white-space:nowrap;text-align:left}
+  .stk1,.stk2{position:static!important}.chip,.lvl,.flag{font-size:.9em}.code{font-weight:600;color:#3a5bdc}
+  a{color:inherit;text-decoration:none} i{display:none}</style></head><body>
+  <h1>${esc(t)}</h1><p class="sub">CMI เขตสุขภาพที่ ${D.meta.region} · ${esc(TABLBL[S.tab])} · ปีงบ ${D.meta.fy} · ข้อมูล ณ วันที่ ${esc($('#run').textContent)} · ที่มา cmi.moph.go.th</p>${tableHTML}</body></html>`); d.close();
+  const w=f.contentWindow; const done=()=>setTimeout(()=>f.remove(),1000);
+  w.addEventListener('afterprint',done);
+  const go=()=>{ try{ w.focus(); w.print(); }catch(e){} setTimeout(done,60000); };
+  (d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,300));
+}
+function addExports(root){
+  root.querySelectorAll('.tbl, .mx, .rlist').forEach(box=>{
+    if(box.previousElementSibling?.classList.contains('xbar')) return;
+    const bar=document.createElement('div'); bar.className='xbar';
+    bar.innerHTML=`<button type="button" data-x="xlsx" title="ดาวน์โหลดตารางนี้เป็น Excel">Excel</button><button type="button" data-x="pdf" title="พิมพ์ / บันทึกตารางนี้เป็น PDF">PDF</button>`;
+    bar.querySelector('[data-x=xlsx]').onclick=e=>toExcel(box,e.currentTarget);
+    bar.querySelector('[data-x=pdf]').onclick=()=>toPDF(box);
+    box.parentNode.insertBefore(bar, box);
+  });
+}
+
 const VIEWS={overview:vOverview,rank:vRank,matrix:vMatrix,volume:vVolume,flags:vFlags,hosp:vHosp,compare:vCompare,code:vCode};
 function render(){
   if(!VIEWS[S.tab]) S.tab='overview';
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.tab===S.tab));
   Object.keys(VIEWS).forEach(k=>document.getElementById('v-'+k).hidden = k!==S.tab);
-  VIEWS[S.tab](); writeHash();
+  VIEWS[S.tab](); addExports(document.getElementById('v-'+S.tab)); writeHash();
 }
 let lastTab=S.tab;
 function go(tab){ if(['matrix','volume','flags'].includes(tab) && !['matrix','volume','flags'].includes(lastTab)) S.only='all';
