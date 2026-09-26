@@ -723,14 +723,30 @@ function vFlags(){
   const sortKey = S.fs in FLAGDEF ? FLAGDEF[S.fs].key : 'cond';
   rows.sort((a,b)=>b[sortKey].length-a[sortKey].length || a.x.short.localeCompare(b.x.short,'th'));
   const me = rows.find(r=>r.x.i===S.h) || rows[0];
+  const DESC = {
+    cond:'โรคที่โรงพยาบาลสรุปได้ CMI < 0.5 แต่โรงพยาบาลกลุ่มเปรียบเทียบมี MEAN และ MEDIAN > 0.5',
+    below:'โรคที่โรงพยาบาลสรุปได้ CMI ต่ำกว่าทั้ง MEAN และ MEDIAN ของโรงพยาบาลกลุ่มเปรียบเทียบ',
+    lo:'โรคที่โรงพยาบาลสรุปได้ CMI ต่ำกว่าค่าเฉลี่ย (Mean) ลบด้วยค่าส่วนเบี่ยงเบนมาตรฐาน (คิดเป็น Percentile ที่ 15.87 โดยประมาณ) ของกลุ่มเปรียบเทียบ',
+    hi:'โรคที่โรงพยาบาลสรุปได้ CMI สูงกว่าค่าเฉลี่ย (Mean) บวกด้วยค่าส่วนเบี่ยงเบนมาตรฐาน (คิดเป็น Percentile ที่ 84.13 โดยประมาณ) ของกลุ่มเปรียบเทียบ',
+    vhiAll:'กลุ่มโรคที่มีจำนวนผู้ป่วยในเทียบกับ 10,000 ประชากร UC ในพื้นที่ แล้วสูงกว่าค่าเฉลี่ย (Mean) บวกด้วยค่าส่วนเบี่ยงเบนมาตรฐาน (คิดเป็น Percentile ที่ 84.13 โดยประมาณ) ของกลุ่มเปรียบเทียบ',
+    vhi2:'กลุ่มโรคที่มีจำนวนผู้ป่วยในเทียบกับ 10,000 ประชากร UC ในพื้นที่ แล้วสูงกว่าค่าเฉลี่ย (Mean) บวกด้วย 2 เท่าของค่าส่วนเบี่ยงเบนมาตรฐาน (คิดเป็น Percentile ที่ 97.72 โดยประมาณ) ของกลุ่มเปรียบเทียบ' };
+  // คอลัมน์สถิติที่แสดงตามแต่ละเงื่อนไข
+  const COLS = {
+    cond:[['MEAN',t=>t.mean,2],['MEDIAN',t=>t.med,2]],
+    below:[['MEAN',t=>t.mean,2],['MEDIAN',t=>t.med,2]],
+    lo:[['MEAN',t=>t.mean,2],['MEAN−SD',t=>t.lo,2]],
+    hi:[['MEAN',t=>t.mean,2],['MEAN+SD',t=>t.hi,2]],
+    vhiAll:[['MEAN กลุ่ม',t=>t.vmean,1],['MEAN+SD',t=>t.vhi,1]],
+    vhi2:[['MEAN กลุ่ม',t=>t.vmean,1],['MEAN+2SD',t=>t.vhi2,1]] };
   const detail = (r, key, def) => {
+    const desc = `<p class="hint" style="margin:0 0 10px;font-size:13px;color:var(--ink2)">${esc(DESC[key]||'')}</p>`;
     const list = r[key].map(c=>({c,t:G.byCode.get(c),r:PDXBY[r.x.i].get(c)})).sort((a,b)=>b.r[2]-a.r[2]);
-    if(!list.length) return `<p class="hint">ไม่มีโรคที่เข้าเงื่อนไข</p>`;
-    const vol = key.startsWith('vhi');
-    return `<div class="tbl"><table><thead><tr><th>รหัส</th><th>ชื่อโรค</th><th class="num">ราย</th>${vol?'<th class="num">ต่อ 10,000</th><th class="num">MEAN กลุ่ม</th><th class="num">MEAN+SD</th><th class="num">MEAN+2SD</th>':'<th class="num">CMI รพ.</th><th class="num">MEAN</th><th class="num">MEDIAN</th><th class="num">MEAN−SD</th><th class="num">MEAN+SD</th>'}<th class="num">อันดับผู้ป่วยในกลุ่ม</th></tr></thead><tbody>
+    if(!list.length) return desc+`<p class="hint">ไม่มีโรคที่เข้าเงื่อนไข</p>`;
+    const vol = key.startsWith('vhi'); const cols = COLS[key]||COLS.cond;
+    const col = def.cls==='gr'?'var(--gr)':def.cls==='below'?'#b4235a':def.cls==='cond'?'var(--warn)':'var(--lo)';
+    return desc+`<div class="tbl"><table><thead><tr><th>รหัส</th><th>ชื่อโรค</th><th class="num">ราย</th><th class="num">${vol?'ต่อ 10,000':'CMI รพ.'}</th>${cols.map(([l])=>`<th class="num">${l}</th>`).join('')}<th class="num">อันดับผู้ป่วยในกลุ่ม</th></tr></thead><tbody>
       ${list.map(({c,t,r:rr})=>`<tr class="link" data-code="${D.PDXC[c][0]}"><td class="code">${D.PDXC[c][0]}</td><td>${esc(D.PDXC[c][1])}</td><td class="num">${fmt(rr[2])}</td>
-        ${vol?`<td class="num">${fmt(rr[2]/r.x.pop*10000,1)}</td><td class="num">${fmt(t.vmean,1)}</td><td class="num">${fmt(t.vhi,1)}</td><td class="num">${fmt(t.vhi2,1)}</td>`
-        :`<td class="num" style="color:${def.cls==='gr'?'var(--gr)':def.cls==='below'?'#b4235a':'var(--lo)'};font-weight:600">${fmt(rr[3]/rr[2],2)}</td><td class="num">${fmt(t.mean,2)}</td><td class="num">${fmt(t.med,2)}</td><td class="num">${fmt(t.lo,2)}</td><td class="num">${fmt(t.hi,2)}</td>`}
+        <td class="num" style="${vol?'':`color:${col};`}font-weight:600">${vol?fmt(rr[2]/r.x.pop*10000,1):fmt(rr[3]/rr[2],2)}</td>${cols.map(([,f,d])=>`<td class="num">${fmt(f(t),d)}</td>`).join('')}
         <td class="num">${t.rank}${t.rank<=100?' <span class="chip">TOP100</span>':''}</td></tr>`).join('')}</tbody></table></div>`; };
   $('#v-flags').innerHTML = meFilters('fl') + `
     <div class="panel" style="margin-bottom:16px">
