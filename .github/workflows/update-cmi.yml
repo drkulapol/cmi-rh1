@@ -66,7 +66,7 @@ jobs:
         run: |
           git config user.name  "cmi-bot"
           git config user.email "cmi-bot@users.noreply.github.com"
-          git add data.json
+          git add data.json meta.json
           if git diff --cached --quiet; then
             echo "ข้อมูลไม่เปลี่ยน"
           else
