@@ -46,6 +46,9 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;backgroun
 .brand{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-block:16px 10px}
 .brand h1{font-family:var(--display);color:var(--hdr-ink);font-size:21px;font-weight:600;margin:0;display:flex;align-items:center;gap:10px}
 .brand h1::before{content:"CMI";font:700 11px/1 var(--mono);letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#3a5bdc,#1fb5a6);border-radius:8px;padding:8px 7px}
+.fysel{display:inline-flex;align-items:center;gap:8px;color:var(--hdr-muted);font-size:12.5px}
+.fysel select{width:auto;min-width:96px;height:32px;border-radius:9px;background:#1a2340;color:#eef2ff;border:1px solid var(--hdr-line);font:600 14px var(--mono);padding:0 10px}
+.fynote{margin:16px 0 0;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 10%,var(--panel));color:var(--ink);font-size:13px}
 .brand .sub{color:var(--hdr-muted);font-size:12.5px}
 .brand .sub b{font-family:var(--mono);font-weight:500;color:#8ff0e3}
 .xbar{display:flex;justify-content:flex-end;gap:6px;margin:0 0 6px}
@@ -219,6 +222,7 @@ footer.credit{margin:28px 0 8px;border:1px solid var(--line);border-radius:16px;
   </nav>
   <div class="brand">
     <h1>Mean AdjRW (Principal diagnosis)</h1>
+    <label class="fysel" for="fy-sel">ปีงบประมาณ <select id="fy-sel" aria-label="เลือกปีงบประมาณ (พ.ศ.)"></select></label>
     <span class="sub">M&amp;E ผู้ป่วยใน ปีงบ <b id="fy"></b> · ข้อมูล ณ วันที่ <b id="run"></b> · <b id="nh"></b> หน่วยบริการ · ที่มา cmi.moph.go.th</span>
   </div>
   <nav class="tabs" role="tablist" id="tabs">
@@ -284,11 +288,24 @@ footer.credit{margin:28px 0 8px;border:1px solid var(--line);border-radius:16px;
 
 <div id="boot" style="padding:48px 16px;text-align:center;color:#8089a0;font:14px system-ui">กำลังโหลดข้อมูล…</div>
 <script type="module">
-const D = await fetch('data.json?v=' + Date.now()).then(r => { if(!r.ok) throw new Error('โหลด data.json ไม่ได้ (HTTP '+r.status+')'); return r.json(); })
-  .catch(e => { document.getElementById('boot').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message; throw e; });
+// ---------- เลือกปีงบประมาณ (พ.ศ.) ----------
+// years.json = {"years":[2570,2569],"default":2570} · ข้อมูลรายปีอยู่ในไฟล์ data-<ปี>.json (สำรอง: data.json ถ้าปีตรงกัน)
+const bootMsg = t => { const b=document.getElementById('boot'); if(b) b.textContent=t; };
+const getJSON = u => fetch(u+(u.includes('?')?'&':'?')+'v='+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null);
+const YCFG = (await getJSON('years.json')) || {years:[2570,2569], default:2570};
+const YEARS = [...new Set((YCFG.years||[]).map(Number))].sort((a,b)=>b-a);
+const hasData = d => d && Array.isArray(d.H) && d.H.some(h=>h && +h[8]>0);
+async function loadYear(fy){ let d=await getJSON('data-'+fy+'.json'); if(!d){ const legacy=await getJSON('data.json'); if(legacy&&+legacy.meta?.fy===fy) d=legacy; } return d; }
+const hashFy = +(new URLSearchParams(location.hash.slice(1)).get('fy')||0);
+const WANT = YEARS.includes(hashFy)? hashFy : +(YCFG.default||YEARS[0]);
+let D = await loadYear(WANT), EMPTY_FY = null;
+if(!hasData(D)){ EMPTY_FY = { fy:WANT, run:D?.meta?.run||null };
+  for(const y of YEARS.filter(y=>y!==WANT)){ const d=await loadYear(y); if(hasData(d)){ D=d; break; } } }
+if(!hasData(D)){ bootMsg('ยังไม่มีข้อมูลปีงบ '+WANT+' และไม่พบข้อมูลปีอื่น'); throw new Error('no data'); }
+D.meta.fy = +D.meta.fy;
 document.getElementById('boot')?.remove();
 // วันเวลาดึงข้อมูลล่าสุด (meta.json อัปเดตทุกครั้งที่ดึงสำเร็จ)
-try{ const M=await fetch('meta.json?v='+Date.now()).then(r=>r.ok?r.json():null); if(M&&M.run&&(!M.fy||M.fy===D.meta.fy)) D.meta.run=M.run; }catch(e){}
+try{ const M=await getJSON('meta.json'); const my=M?.years?.[D.meta.fy]; if(my?.run) D.meta.run=my.run; else if(M&&M.run&&(!M.fy||+M.fy===D.meta.fy)) D.meta.run=M.run; if(EMPTY_FY&&!EMPTY_FY.run) EMPTY_FY.run=M?.years?.[EMPTY_FY.fy]?.checked||M?.checked||M?.run||null; }catch(e){}
 // ---------- ยุบ DRG 5 หลัก -> 4 หลัก (รวมทุกระดับความรุนแรง CCC) ----------
 { const SEV=/\s*(wo sig|w sig|w min|w mod|w maj|w ext|w cat|w severe)\s+CCC\s*$/i;
   const base=n=>String(n).replace(SEV,'').replace(/\s{2,}/g,' ').trim();
@@ -400,7 +417,7 @@ const METRICS = {
 };
 
 // ---------- state ----------
-const S = {tab:'matrix', m:'cmi', g:'lvl:F2', og:'all', bm:'an', h:VALID.find(x=>x.hcode==='11178')?.i ?? VALID[0].i, cmp:[], ct:'drg', c:null,
+const S = {tab:'matrix', m:'cmi', g:'lvl:F2', og:'all', bm:'an', h:VALID.find(x=>x.hcode==='11179')?.i ?? VALID[0].i, cmp:[], ct:'drg', c:null,
   ag:null, top:'100', only:'all', q:'', fs:'cond', mn:NMON, sort:'an', dir:'desc', color:'grad', pm:'cmi', cs:'an', cd:'desc', kchw:'', klvl:'', cmode:'top', cn:'15', pc:[]};
 function readHash(){ let p; try{ p=new URLSearchParams(location.hash.slice(1)); }catch(e){ return; }
   const t=p.get('tab')||(location.hash.length>1&&!location.hash.includes('=')?location.hash.slice(1):null);
@@ -409,7 +426,7 @@ function readHash(){ let p; try{ p=new URLSearchParams(location.hash.slice(1)); 
   if(p.get('cmp')) S.cmp=p.get('cmp').split('.').map(c=>H.find(x=>x.hcode===c)).filter(Boolean).map(x=>x.i).slice(0,4);
   if(p.get('ct')==='pdx'||p.get('ct')==='drg') S.ct=p.get('ct'); if(p.get('c')) S.c=p.get('c');
   if(AGROUPS[p.get('ag')]||p.get('ag')==='all') S.ag=p.get('ag'); if(p.has('gc')) S.gc=p.get('gc'); if(p.has('gn')) S.gn=p.get('gn'); if(p.get('top')) S.top=p.get('top'); if(p.get('only')) S.only=p.get('only'); if(p.get('fs')) S.fs=p.get('fs'); if(p.get('mn')) S.mn=Math.max(1,Math.round(+p.get('mn')||NMON)); if(p.get('sort')) S.sort=p.get('sort'); if(p.get('dir')==='asc') S.dir='asc'; if(p.get('color')==='sd') S.color='sd'; if(['cmi','an','vol'].includes(p.get('pm'))) S.pm=p.get('pm'); if(p.get('pc')!=null){ S.cmode='pick'; S.pc=p.get('pc').split('.').filter(Boolean); } if(p.get('cn')) S.cn=p.get('cn'); if(p.get('chw')) S.kchw=p.get('chw'); if(p.get('lvl')) S.klvl=p.get('lvl'); }
-function writeHash(){ try{ const p=new URLSearchParams({tab:S.tab,h:H[S.h].hcode});
+function writeHash(){ try{ const p=new URLSearchParams({fy:D.meta.fy,tab:S.tab,h:H[S.h].hcode});
   if(S.tab==='rank'){ p.set('m',S.m); p.set('ag',S.ag); if(S.gc) p.set('gc',S.gc); if(S.gn) p.set('gn',S.gn); }
   if(['matrix','volume','flags'].includes(S.tab)){ p.set('ag',S.ag); if(S.gc) p.set('gc',S.gc); if(S.gn) p.set('gn',S.gn); p.set('top',S.top); p.set('only',S.only); p.set('mn',S.mn); if(S.tab==='flags') p.set('fs',S.fs); else { p.set('sort',S.sort); p.set('dir',S.dir); if(S.tab==='matrix') p.set('color',S.color); } }
   if(S.tab==='compare'){ if(S.cmp.length) p.set('cmp',S.cmp.map(i=>H[i].hcode).join('.')); p.set('pm',S.pm); if(S.cmode==='pick'){ p.set('pc',(S.pc||[]).join('.')); } else p.set('cn',S.cn); }
@@ -1060,10 +1077,15 @@ function go(tab){ if(['matrix','volume','flags'].includes(tab) && !['matrix','vo
   S.tab=tab; lastTab=tab; render(); window.scrollTo({top:0}); }
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('#fy').textContent=D.meta.fy; $('#nh').textContent=VALID.length;
+{ const sel=$('#fy-sel'); sel.innerHTML=YEARS.map(y=>`<option value="${y}"${y===D.meta.fy?' selected':''}>${y}${EMPTY_FY&&y===EMPTY_FY.fy?' (ยังไม่มีข้อมูล)':''}</option>`).join('');
+  sel.onchange=()=>{ const p=new URLSearchParams(location.hash.slice(1)); p.set('fy',sel.value); location.hash=p.toString(); location.reload(); };
+  if(EMPTY_FY){ const n=document.createElement('div'); n.className='fynote'; n.setAttribute('role','status');
+    n.innerHTML=`ปีงบ <b>${EMPTY_FY.fy}</b> เขตสุขภาพที่ 1 ยังไม่มีข้อมูลบนเว็บ CMI${EMPTY_FY.run?` (ตรวจล่าสุด ${runTxt(EMPTY_FY.run,'long')})`:''} จึงแสดงข้อมูลปีงบ <b>${D.meta.fy}</b> แทน · เมื่อ รพ. ส่งข้อมูลและเว็บ CMI ประมวลผลแล้ว ระบบจะแสดงปี ${EMPTY_FY.fy} เป็นค่าเริ่มต้นเอง`;
+    document.querySelector('main.wrap')?.prepend(n); } }
 $('#run').textContent=runTxt(D.meta.run,'long');
 $('#creditUpdated').textContent=runTxt(D.meta.run,'long');
 $('#creditDefs').onclick=e=>{ e.preventDefault(); const d=$('#defs'); d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); };
-$('#foot').innerHTML = `ข้อมูลผู้ป่วยในจาก CMI@MoPH ปีงบ ${D.meta.fy} เขตสุขภาพที่ ${D.meta.region} (ดึงอัตโนมัติจาก cmi.moph.go.th เมื่อ ${runTxt(D.meta.run,'short')}) · CMI รพ. ตามรายงานร้อยละผู้ป่วยในจำแนกตามระดับ CMI · PDx 3 หลัก และ DRG เป็นยอดสะสมตั้งแต่ต้นปีงบ · ${D.meta.master} · ไม่มีข้อมูล: ${D.meta.failed.join(', ')} (เซิร์ฟเวอร์ต้นทางตอบ HTTP 500)`;
+$('#foot').innerHTML = `ข้อมูลผู้ป่วยในจาก CMI@MoPH ปีงบ ${D.meta.fy} เขตสุขภาพที่ ${D.meta.region} (ดึงอัตโนมัติจาก cmi.moph.go.th เมื่อ ${runTxt(D.meta.run,'short')}) · CMI รพ. ตามรายงานร้อยละผู้ป่วยในจำแนกตามระดับ CMI · PDx 3 หลัก และ DRG เป็นยอดสะสมตั้งแต่ต้นปีงบ · ${D.meta.master} · ไม่มีข้อมูล: ${D.meta.failed.length>6? D.meta.failed.length+' แห่ง (ยังไม่ส่งข้อมูลหรือเว็บต้นทางยังไม่ประมวลผล)' : D.meta.failed.join(', ')+' (เซิร์ฟเวอร์ต้นทางตอบ HTTP 500)'}`;
 const mq=matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener?.('change',render);
 new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 render();
