@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       fy:
-        description: "ปีงบประมาณ พ.ศ. (เว้นว่าง = อัตโนมัติ)"
+        description: "ปีงบประมาณ พ.ศ. (เว้นว่าง = ปีงบปัจจุบัน + ปีก่อนหน้า)"
         required: false
 
 permissions:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -39,34 +39,51 @@ jobs:
           done
           echo "::warning::รอบนี้เข้าเว็บ cmi.moph.go.th ไม่ได้ ข้ามไป ข้อมูลเดิมยังอยู่"
 
-      - name: Fetch CMI
+      - name: Fetch CMI + build data-<ปีงบ>.json (ปีงบปัจจุบันและปีก่อนหน้า)
         if: env.OK == '1'
         env:
           FY_IN: ${{ github.event.inputs.fy }}
         run: |
           CUR=$(( $(TZ=Asia/Bangkok date +%Y) + 543 + ( $(TZ=Asia/Bangkok date +%-m) >= 10 ? 1 : 0 ) ))
-          FY=${FY_IN:-$CUR}
-          # ปีงบใหม่ช่วงต้น ๆ ข้อมูลยังไม่ครบ -> ถ้าไม่ผ่านเกณฑ์ ให้อัปเดตปีงบก่อนหน้าแทน
-          if python scripts/fetch_cmi.py --fy "$FY" --out /tmp/cmi --no-excel; then
-            echo "FY=$FY" >> $GITHUB_ENV
-          elif [ -z "$FY_IN" ]; then
-            PREV=$((FY-1))
-            python scripts/fetch_cmi.py --fy "$PREV" --out /tmp/cmi --no-excel
-            echo "FY=$PREV" >> $GITHUB_ENV
-          else
-            exit 1
-          fi
+          echo "CUR=$CUR" >> $GITHUB_ENV
+          if [ -n "$FY_IN" ]; then LIST="$FY_IN"; else LIST="$CUR $((CUR-1))"; fi
+          for FY in $LIST; do
+            OUT="data-$FY.json"
+            # ปีงบปัจจุบัน: แสดงทันทีที่มี รพ. ส่งข้อมูล (ขั้นต่ำ 1 แห่ง) · ปีก่อน ๆ: ต้องได้อย่างน้อย 95 แห่ง
+            if [ "$FY" -ge "$CUR" ]; then MIN=1; else MIN=95; fi
+            if python scripts/fetch_cmi.py --fy "$FY" --out /tmp/cmi --no-excel --min-ok "$MIN"; then
+              BASE=$(ls data-*.json 2>/dev/null | grep -v "^$OUT$" | sort -r | head -1 || true)
+              BASE=${BASE:-data.json}
+              python scripts/build_data.py "/tmp/cmi/cmi_raw_$FY.json" "$OUT" --base "$BASE"
+            else
+              echo "::notice::ปีงบ $FY ยังไม่มีข้อมูลเพียงพอบนเว็บ CMI — คงไฟล์เดิมไว้"
+            fi
+          done
 
-      - name: Build data.json
+      - name: Update years.json + เวลาตรวจล่าสุดใน meta.json
         if: env.OK == '1'
-        run: python scripts/build_data.py /tmp/cmi/cmi_raw_${FY}.json data.json
+        run: |
+          python - "$CUR" <<'PY'
+          import glob, json, re, sys
+          from datetime import datetime, timezone, timedelta
+          cur = int(sys.argv[1])
+          ys = {cur} | {int(m.group(1)) for f in glob.glob('data-*.json') if (m := re.fullmatch(r'data-(\d{4})\.json', f))}
+          json.dump({'years': sorted(ys, reverse=True), 'default': cur}, open('years.json', 'w'))
+          try:
+              m = json.load(open('meta.json', encoding='utf-8'))
+          except Exception:
+              m = {}
+          m['checked'] = datetime.now(timezone(timedelta(hours=7))).isoformat(timespec='seconds')
+          json.dump(m, open('meta.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+          print('years.json:', sorted(ys, reverse=True), 'default', cur)
+          PY
 
       - name: Commit if changed
         if: env.OK == '1'
         run: |
           git config user.name  "cmi-bot"
           git config user.email "cmi-bot@users.noreply.github.com"
-          git add data.json meta.json
+          git add years.json meta.json $(ls data-*.json 2>/dev/null || true)
           if git diff --cached --quiet; then
             echo "ข้อมูลไม่เปลี่ยน"
           else
